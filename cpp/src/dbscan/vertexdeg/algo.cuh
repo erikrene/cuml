@@ -16,29 +16,20 @@
 
 #pragma once
 
+#include "pack.h"
 #include <cuda_runtime.h>
 #include <math.h>
+#include <raft/device_atomics.cuh>
+#include <raft/linalg/coalesced_reduction.hpp>
 #include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/linalg/norm.cuh>
 #include <raft/spatial/knn/epsilon_neighborhood.hpp>
 #include <rmm/device_uvector.hpp>
-#include <raft/device_atomics.cuh>
-#include <raft/linalg/coalesced_reduction.hpp>
-
-#include "pack.h"
 
 namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
 namespace Algo {
-
-template<typename index_t>
-struct multiply_unary : thrust::unary_function<index_t, index_t> {
-  index_t c;
-  __host__ multiply_unary(index_t c) : c(c) {}
-  __host__ __device__ index_t operator()(index_t idx) const { return c * idx; }
-};
-
 
 /**
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
@@ -116,25 +107,24 @@ void launcher(const raft::handle_t& handle,
     // 2. Do not compute the vertex degree in epsUnexpL2SqNeighborhood (pass a
     // nullptr)
     raft::spatial::knn::epsUnexpL2SqNeighborhood<value_t, index_t>(
-        data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
-
+      data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
   }
 
   // Reduction of adj to compute the vertex degrees
   raft::linalg::coalescedReduction<bool, index_t, index_t>(
-      data.vd,
-      data.adj,
-      data.N,
-      batch_size,
-      (index_t)0,
-      stream,
-      false,
-      [] __device__(bool adj_ij, index_t idx) { return static_cast<index_t>(adj_ij); },
-      raft::Sum<index_t>(),
-      [d_nnz] __device__(index_t degree) {
-        atomicAdd(d_nnz, degree);
-        return degree;
-      });
+    data.vd,
+    data.adj,
+    data.N,
+    batch_size,
+    (index_t)0,
+    stream,
+    false,
+    [] __device__(bool adj_ij, index_t idx) { return static_cast<index_t>(adj_ij); },
+    raft::Sum<index_t>(),
+    [d_nnz] __device__(index_t degree) {
+      atomicAdd(d_nnz, degree);
+      return degree;
+    });
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

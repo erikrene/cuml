@@ -157,7 +157,8 @@ std::size_t run(const raft::handle_t& handle,
          (unsigned long)batch_size);
 
   if (workspace == NULL) {
-    auto size = adj_size + core_pts_size + m_size + vd_size + ex_scan_size + row_cnt_size + 2 * labels_size;
+    auto size =
+      adj_size + core_pts_size + m_size + vd_size + ex_scan_size + row_cnt_size + 2 * labels_size;
     return size;
   }
 
@@ -236,8 +237,18 @@ std::size_t run(const raft::handle_t& handle,
       maxadjlen = curradjlen;
       adj_graph.resize(maxadjlen, stream);
     }
-    AdjGraph::run<Index_>(
-      handle, adj, vd, adj_graph.data(), curradjlen, ex_scan, N, algo_adj, n_points, row_counters, stream);
+    AdjGraph::run<Index_>(handle,
+                          adj,
+                          vd,
+                          adj_graph.data(),
+                          curradjlen,
+                          ex_scan,
+                          N,
+                          algo_adj,
+                          n_points,
+                          row_counters,
+                          stream);
+
     raft::common::nvtx::pop_range();
 
     CUML_LOG_DEBUG("--> Computing connected components");

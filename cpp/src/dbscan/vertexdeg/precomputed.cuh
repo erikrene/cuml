@@ -62,17 +62,16 @@ void launcher(const raft::handle_t& handle,
   index_t* d_nnz = data.vd + batch_size;
   RAFT_CUDA_TRY(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
 
-  long_index_t N = data.N;
+  long_index_t N              = data.N;
   long_index_t cur_batch_size = min(data.N - start_vertex_id, batch_size);
 
   const value_t& eps = data.eps;
-  raft::linalg::unaryOp<value_t>
-    (data.adj,
-     data.x + (long_index_t) start_vertex_id * N,
-     cur_batch_size * N,
-     [eps] __device__ (value_t dist) { return (dist <= eps); },
-     stream
-     );
+  raft::linalg::unaryOp<value_t>(
+    data.adj,
+    data.x + (long_index_t)start_vertex_id * N,
+    cur_batch_size * N,
+    [eps] __device__(value_t dist) { return (dist <= eps); },
+    stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Reduction of adj to compute the vertex degrees
