@@ -138,11 +138,13 @@ std::size_t run(const raft::handle_t& handle,
    * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
    * overflow.
    */
+  using ML::Dbscan::AdjGraph::Algo::atomic_ctr_t;
   std::size_t adj_size      = raft::alignTo<std::size_t>(sizeof(bool) * N * batch_size, align);
   std::size_t core_pts_size = raft::alignTo<std::size_t>(sizeof(bool) * N, align);
   std::size_t m_size        = raft::alignTo<std::size_t>(sizeof(bool), align);
   std::size_t vd_size       = raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align);
   std::size_t ex_scan_size  = raft::alignTo<std::size_t>(sizeof(Index_) * batch_size, align);
+  std::size_t row_cnt_size  = raft::alignTo<std::size_t>(sizeof(atomic_ctr_t) * batch_size, align);
   std::size_t labels_size   = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
@@ -155,7 +157,7 @@ std::size_t run(const raft::handle_t& handle,
          (unsigned long)batch_size);
 
   if (workspace == NULL) {
-    auto size = adj_size + core_pts_size + m_size + vd_size + ex_scan_size + 2 * labels_size;
+    auto size = adj_size + core_pts_size + m_size + vd_size + ex_scan_size + row_cnt_size + 2 * labels_size;
     return size;
   }
 
@@ -174,6 +176,8 @@ std::size_t run(const raft::handle_t& handle,
   temp += vd_size;
   Index_* ex_scan = (Index_*)temp;
   temp += ex_scan_size;
+  atomic_ctr_t* row_counters = (atomic_ctr_t*)temp;
+  temp += row_cnt_size;
   Index_* labels_temp = (Index_*)temp;
   temp += labels_size;
   Index_* work_buffer = (Index_*)temp;
@@ -233,7 +237,7 @@ std::size_t run(const raft::handle_t& handle,
       adj_graph.resize(maxadjlen, stream);
     }
     AdjGraph::run<Index_>(
-      handle, adj, vd, adj_graph.data(), curradjlen, ex_scan, N, algo_adj, n_points, stream);
+      handle, adj, vd, adj_graph.data(), curradjlen, ex_scan, N, algo_adj, n_points, row_counters, stream);
     raft::common::nvtx::pop_range();
 
     CUML_LOG_DEBUG("--> Computing connected components");

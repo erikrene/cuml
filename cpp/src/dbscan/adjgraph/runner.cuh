@@ -24,6 +24,8 @@ namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 
+using ML::Dbscan::AdjGraph::Algo::atomic_ctr_t;
+
 template <typename Index_ = int>
 void run(const raft::handle_t& handle,
          bool* adj,
@@ -34,12 +36,14 @@ void run(const raft::handle_t& handle,
          Index_ N,
          int algo,
          Index_ batch_size,
+         atomic_ctr_t* row_counters,
          cudaStream_t stream)
 {
   Pack<Index_> data = {vd, adj, adj_graph, adjnnz, ex_scan, N};
   switch (algo) {
+    // TODO: deprecate naive runner. cf #3414
     case 0: Naive::launcher<Index_>(handle, data, batch_size, stream); break;
-    case 1: Algo::launcher<Index_>(handle, data, batch_size, stream); break;
+    case 1: Algo::launcher<Index_>(handle, data, batch_size, row_counters, stream); break;
     default: ASSERT(false, "Incorrect algo passed! '%d'", algo);
   }
 }
